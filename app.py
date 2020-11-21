@@ -6,17 +6,30 @@
 
 # Create an `app.py`, and make the necessary imports.
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, url_for
 import pandas as pd
-import climate_analysis.ipynb
+
+from ipynb.fs.full.climate_analysis import *
 
 app = Flask(__name__)
 
-routes = [(app.url_map)]
+from app import app
+
+def has_no_empty_params(rule):
+    defaults = rule.defaults if rule.defaults is not None else ()
+    arguments = rule.arguments if rule.arguments is not None else ()
+    return len(defaults) >= len(arguments)
+
+links = []
+for rule in app.url_map.iter_rules():
+    if "GET" in rule.methods and has_no_empty_params(rule):
+        url = url_for(rule.endpoint, **(rule.defaults or {}))
+        links.append((url, rule.endpoint))
+
 
 @app.route("/")
 def index():
-    return print(routes)
+    return print(links)
 
 @app.route("/api/v1.0/precipitation")
 def precip():
@@ -40,7 +53,7 @@ def duration():
     return print("Test")
 
 
-from app import app
+
 
 if __name__ == "__main__":
     app.run(debug=True)
