@@ -1,13 +1,14 @@
-# Hello, Web
 
-# This activity allows students to practice setting up a server and defining basic routes with Flask.
-
-## Instructions
 
 # Create an `app.py`, and make the necessary imports.
 
 from flask import Flask, jsonify, url_for
 import pandas as pd
+import sqlalchemy
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, func, inspect
+import datetime as dt
 
 from ipynb.fs.full.climate_analysis import *
 
@@ -15,42 +16,86 @@ app = Flask(__name__)
 
 from app import app
 
-def has_no_empty_params(rule):
-    defaults = rule.defaults if rule.defaults is not None else ()
-    arguments = rule.arguments if rule.arguments is not None else ()
-    return len(defaults) >= len(arguments)
-
-links = []
-for rule in app.url_map.iter_rules():
-    if "GET" in rule.methods and has_no_empty_params(rule):
-        url = url_for(rule.endpoint, **(rule.defaults or {}))
-        links.append((url, rule.endpoint))
-
-
 @app.route("/")
 def index():
-    return print(links)
+
+    return (
+        f"Available Routes:<br/>"
+        f"/api/v1.0/precipitation<br/>"
+        f"/api/v1.0/stations<br/>"
+        f"/api/v1.0/tobs<br/>"
+        f"/api/v1.0/<start><br/>"
+        f"/api/v1.0/<start>/<end><br/>"
+    )
 
 @app.route("/api/v1.0/precipitation")
 def precip():
-    precip_dict = precip_df.to_dict('list')
+    date_list = [element[0] for element in precip_query]
+    precip_list = [element[1] for element in precip_query]
+    precip_dict = dict(zip(date_list, precip_list))
+    
     return jsonify(precip_dict)
 
 @app.route("/api/v1.0/stations")
 def stations():
-    return print("Test")
+
+    return jsonify(stations_df['Station'])
 
 @app.route("/api/v1.0/tobs")
 def tobs():
-    return print("Test")
+    engine = create_engine("sqlite:///Resources/hawaii.sqlite")
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Measurement = Base.classes.measurement
+
+
+    tobs_query = session.query(Measurement.station, Measurement.date, Measurement.tobs).\
+                filter(Measurement.station == stations_df['Station'][0]).\
+                filter(Measurement.date >= year_query_date).all()
+    session.close()
+    return jsonify(tobs_query)
 
 @app.route("/api/v1.0/<start>")
-def start():
-    return print("Test")
+def start(start):
+    engine = create_engine("sqlite:///Resources/hawaii.sqlite")
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Measurement = Base.classes.measurement
+
+    start_date = dt.date(start)
+
+    TMIN = session.query(Measurement.station, Measurement.date, func.min(Measurement.tobs)).group_by(Measurement.date).\
+        filter(Measurement.date >= start_date).all()
+    TMAX = session.query(Measurement.station, Measurement.date, func.max(Measurement.tobs)).group_by(Measurement.date).\
+        filter(Measurement.date >= start_date).all()
+    TAVG = session.query(Measurement.station, Measurement.date, func.avg(Measurement.tobs)).group_by(Measurement.date).\
+        filter(Measurement.date >= start_date).all()
+    
+    session.close()
+    return jsonify(TMIN, TMAX, TAVG)
 
 @app.route("/api/v1.0/<start>/<end>")
-def duration():
-    return print("Test")
+def duration(start, end):
+    engine = create_engine("sqlite:///Resources/hawaii.sqlite")
+    Base = automap_base()
+    Base.prepare(engine, reflect=True)
+    Measurement = Base.classes.measurement
+
+    start_date = dt.date(start).strftime('%Y-%m-%d')
+    end_date = dt.date(end).strftime('%Y-%m-%d')
+
+    DMIN = session.query(Measurement.station, Measurement.date, func.min(Measurement.tobs)).group_by(Measurement.date).\
+        filter(Measurement.date >= start_date).\
+        filter(Measurement.date <= end_date).all()
+    DMAX = session.query(Measurement.station, Measurement.date, func.max(Measurement.tobs)).group_by(Measurement.date).\
+        filter(Measurement.date >= start_date).\
+        filter(Measurement.date <= end_date).all()
+    DAVG = session.query(Measurement.station, Measurement.date, func.avg(Measurement.tobs)).group_by(Measurement.date).\
+        filter(Measurement.date >= start_date).\
+        filter(Measurement.date <= end_date).all()
+    
+    session.close()
+    return jsonify(DMIN, DMAX, DAVG)
 
 
 
