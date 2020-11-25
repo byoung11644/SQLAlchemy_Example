@@ -96,7 +96,8 @@ def start(start):
     Measurement = Base.classes.measurement
     session = Session(engine)
 
-    start_date = dt.date(start)
+    start_date = dt.strptime(start, "%Y-%m-%d").date()
+    
 
     TMIN = session.query(Measurement.station, Measurement.date, func.min(Measurement.tobs)).group_by(Measurement.date).\
         filter(Measurement.date >= start_date).all()
@@ -116,8 +117,8 @@ def duration(start, end):
     Measurement = Base.classes.measurement
     session = Session(engine)
 
-    start_date = dt.date(start).strftime('%Y-%m-%d')
-    end_date = dt.date(end).strftime('%Y-%m-%d')
+    start_date = dt.strptime(start, "%Y-%m-%d").date()
+    end_date = dt.strptime(end, "%Y-%m-%d").date()
 
     DMIN = session.query(Measurement.station, Measurement.date, func.min(Measurement.tobs)).group_by(Measurement.date).\
         filter(Measurement.date >= start_date).\
