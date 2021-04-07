@@ -14,6 +14,8 @@ app = Flask(__name__)
 
 from app import app
 
+# Creating the routes for the app. Each Route will return daa from our SQL connection
+
 @app.route("/")
 def index():
 
